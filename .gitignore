@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+#/
+macOS/
+
+# Data files — don't commit the database or trained model
+data/darts.db
+data/dart_model.pt
+data/calibration.json
+
+# Large model files
+*.pt
+*.onnx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
