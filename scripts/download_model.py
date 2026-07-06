@@ -44,7 +44,7 @@ def main():
     version = project.version(VERSION)
 
     print(f"Downloading YOLOv8 weights for {PROJECT} v{VERSION} ...")
-    model_dir = Path(version.download("yolov8pytorch").location)
+    model_dir = Path(version.download("yolov8").location)
 
     # Roboflow downloads into a subdirectory; find the .pt file
     pt_files = list(model_dir.rglob("*.pt"))
