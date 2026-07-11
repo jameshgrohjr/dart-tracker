@@ -11,6 +11,11 @@ macOS/
 data/darts.db
 data/dart_model.pt
 data/calibration.json
+data/display_calibration.json
+data/synthetic_display/
+data/real_display_captures/
+data/runs/
+data/mismatches/
 
 # Large model files
 *.pt
