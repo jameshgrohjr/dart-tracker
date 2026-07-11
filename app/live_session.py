@@ -28,8 +28,12 @@ from app.database import record_throw
 DART_MATCH_RADIUS_MM = 8.0
 
 
-def _dist_mm(hit: dict, known_xy: tuple) -> float:
-    return math.hypot(hit["x_mm"] - known_xy[0], hit["y_mm"] - known_xy[1])
+def _dist(a: tuple, b: tuple) -> float:
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _closest_match(pos: tuple, candidates: list) -> tuple | None:
+    return next((c for c in candidates if _dist(pos, c) <= DART_MATCH_RADIUS_MM), None)
 
 
 class LiveSession:
@@ -47,7 +51,8 @@ class LiveSession:
         self.display_reader = display_reader
         self.correlator = correlator or ThrowCorrelator()
         self._prev_display_crop = None
-        self._known_positions: list = []  # [(x_mm, y_mm), ...] of darts currently on the board
+        self._known_positions: list = []  # [(x_mm, y_mm), ...] confirmed darts currently on the board
+        self._pending_positions: list = []  # [(x_mm, y_mm), ...] seen once, awaiting a 2nd-frame confirmation
 
     def run(self, camera_index: int = 0):
         cap = cv2.VideoCapture(camera_index)
@@ -96,12 +101,39 @@ class LiveSession:
         return committed
 
     def _new_hits_since_last_frame(self, hits: list) -> list:
-        new = [
-            hit for hit in hits
-            if not any(_dist_mm(hit, known) <= DART_MATCH_RADIUS_MM for known in self._known_positions)
-        ]
-        self._known_positions = [(h["x_mm"], h["y_mm"]) for h in hits]
-        return new
+        """A hit only becomes a committed new throw once it's been seen in
+        roughly the same spot on two consecutive frames. This filters
+        single-frame noise -- detector jitter, or the board physically
+        vibrating when a new dart lands -- that would otherwise get
+        double-counted as extra throws. Confirmed dart positions are kept at
+        their original first-seen location rather than overwritten with each
+        frame's raw (noisy) reading, so they don't slowly drift out of match
+        range over time either.
+        """
+        confirmed: list = []
+        pending: list = []
+        new_hits = []
+
+        for hit in hits:
+            pos = (hit["x_mm"], hit["y_mm"])
+
+            match = _closest_match(pos, self._known_positions) or _closest_match(pos, confirmed)
+            if match is not None:
+                confirmed.append(match)
+                continue
+
+            match = _closest_match(pos, self._pending_positions)
+            if match is not None:
+                new_hits.append(hit)
+                confirmed.append(match)
+                continue
+
+            if _closest_match(pos, pending) is None:  # not a duplicate box of an already-pending candidate
+                pending.append(pos)
+
+        self._known_positions = confirmed
+        self._pending_positions = pending
+        return new_hits
 
     def _commit_throw(self, fused: FusedThrow) -> dict:
         pid = self.game.current_player["id"]
