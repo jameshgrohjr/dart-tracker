@@ -44,12 +44,16 @@ class LiveSession:
         detector: DartDetector,
         display_reader: DisplayScoreReader | None = None,
         correlator: ThrowCorrelator | None = None,
+        require_confirmation: bool = False,
+        confirm_fn=None,           # () -> bool ; defaults to an input() prompt. Override for testing.
     ):
         self.game = game
         self.session_id = session_id
         self.detector = detector
         self.display_reader = display_reader
         self.correlator = correlator or ThrowCorrelator()
+        self.require_confirmation = require_confirmation
+        self.confirm_fn = confirm_fn or self._prompt_confirm
         self._prev_display_crop = None
         self._known_positions: list = []  # [(x_mm, y_mm), ...] confirmed darts currently on the board
         self._pending_positions: list = []  # [(x_mm, y_mm), ...] seen once, awaiting a 2nd-frame confirmation
@@ -80,7 +84,9 @@ class LiveSession:
         if self.display_reader is None:
             for hit in new_hits:
                 fused = self.correlator.fusion.reconcile(hit, None)
-                committed.append(self._commit_throw(fused))
+                result = self._commit_throw(fused)
+                if result is not None:
+                    committed.append(result)
             return committed
 
         for hit in new_hits:
@@ -91,12 +97,16 @@ class LiveSession:
             reading = self.display_reader.read(frame)
             if reading["score_value"] is not None:
                 fused = self.correlator.on_display_change(reading, t=t)
-                committed.append(self._commit_throw(fused))
+                result = self._commit_throw(fused)
+                if result is not None:
+                    committed.append(result)
         self._prev_display_crop = crop
 
         for stale_hit in self.correlator.pop_stale_camera_hits(t=t):
             fused = self.correlator.fusion.reconcile(stale_hit, None)
-            committed.append(self._commit_throw(fused))
+            result = self._commit_throw(fused)
+            if result is not None:
+                committed.append(result)
 
         return committed
 
@@ -135,11 +145,21 @@ class LiveSession:
         self._pending_positions = pending
         return new_hits
 
-    def _commit_throw(self, fused: FusedThrow) -> dict:
+    def _commit_throw(self, fused: FusedThrow) -> dict | None:
         pid = self.game.current_player["id"]
         pname = self.game.current_player["name"]
         round_number = self.game.round_number
         throw_in_round = self.game.throw_in_round + 1  # process_throw() below advances state
+
+        print(
+            f"[round {round_number}, throw {throw_in_round}] {pname}: "
+            f"{fused.ring} {fused.segment} = {fused.score_value}  "
+            f"(source={fused.source}, conf={fused.conf:.2f})"
+        )
+
+        if self.require_confirmation and not self.confirm_fn():
+            print("  -> discarded (not confirmed)")
+            return None
 
         result = self.game.process_throw(fused.segment, fused.ring, fused.score_value)
 
@@ -151,10 +171,9 @@ class LiveSession:
             x=fused.x_mm, y=fused.y_mm,
             segment=fused.segment, ring=fused.ring, score_value=fused.score_value,
         )
-
-        print(
-            f"[round {round_number}, throw {throw_in_round}] {pname}: "
-            f"{fused.ring} {fused.segment} = {fused.score_value}  "
-            f"(source={fused.source}, conf={fused.conf:.2f})"
-        )
         return result
+
+    @staticmethod
+    def _prompt_confirm() -> bool:
+        answer = input("  Confirm this throw? [Y/n]: ").strip().lower()
+        return answer in ("", "y", "yes")

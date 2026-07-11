@@ -22,8 +22,9 @@ from app.cv.detector import DartDetector
 from app.cv.display_reader import DisplayScoreReader
 from app.live_session import LiveSession
 
-CAM_INDEX = 0
+CAM_INDEX = 1
 USE_DISPLAY_READER = True  # set False to run camera-only (no electronic board)
+CONFIRM_THROWS = True      # prompt Y/n before each detected throw is recorded, to reject phantom detections
 
 GAME_TYPES = ("cricket", "501", "301")
 
@@ -65,10 +66,16 @@ def main():
         except FileNotFoundError as e:
             print(f"Display reader unavailable, running camera-only: {e}")
 
-    session = LiveSession(game=game, session_id=session_id, detector=detector, display_reader=display_reader)
+    session = LiveSession(
+        game=game, session_id=session_id, detector=detector, display_reader=display_reader,
+        require_confirmation=CONFIRM_THROWS,
+    )
 
     print(f"Session {session_id} ({game_type}) started for: {', '.join(names)}")
-    print("Throw darts. Ctrl+C to stop early.")
+    if CONFIRM_THROWS:
+        print("Throw darts. You'll be asked to confirm each detected throw -- press Enter to accept, 'n' to reject.")
+    else:
+        print("Throw darts. Ctrl+C to stop early.")
     try:
         session.run(camera_index=CAM_INDEX)
     except KeyboardInterrupt:
