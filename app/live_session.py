@@ -105,6 +105,7 @@ class LiveSession:
 
     def _commit_throw(self, fused: FusedThrow) -> dict:
         pid = self.game.current_player["id"]
+        pname = self.game.current_player["name"]
         round_number = self.game.round_number
         throw_in_round = self.game.throw_in_round + 1  # process_throw() below advances state
 
@@ -117,5 +118,11 @@ class LiveSession:
             throw_in_round=throw_in_round,
             x=fused.x_mm, y=fused.y_mm,
             segment=fused.segment, ring=fused.ring, score_value=fused.score_value,
+        )
+
+        print(
+            f"[round {round_number}, throw {throw_in_round}] {pname}: "
+            f"{fused.ring} {fused.segment} = {fused.score_value}  "
+            f"(source={fused.source}, conf={fused.conf:.2f})"
         )
         return result

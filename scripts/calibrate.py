@@ -14,6 +14,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 DATA_DIR = Path(__file__).parent.parent / "data"
+CAM_INDEX = 1  # 0 = default USB webcam; try 1 or 2 if wrong cam opens
 
 # Board coordinates (mm) for the 5 reference points
 BOARD_POINTS = [
@@ -81,9 +82,9 @@ def main():
             json.dump(cal, f, indent=2)
         print(f"Calibration saved to {out}")
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(CAM_INDEX)
     if not cap.isOpened():
-        print("ERROR: Could not open camera (device 0).")
+        print(f"ERROR: Could not open camera (device {CAM_INDEX}).")
         sys.exit(1)
 
     cv2.namedWindow("Calibration")

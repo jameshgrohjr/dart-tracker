@@ -20,7 +20,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 DATA_DIR = Path(__file__).parent.parent / "data"
-CAM_INDEX = 0             # edit if your webcam isn't device 0
+CAM_INDEX = 1             # edit if your webcam isn't device 1
 OUTPUT_SIZE = (640, 160)  # rectified crop size (w, h) fed to the display model later
 
 CORNER_LABELS = [
