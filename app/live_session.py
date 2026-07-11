@@ -100,6 +100,8 @@ class LiveSession:
                 result = self._commit_throw(fused)
                 if result is not None:
                     committed.append(result)
+            else:
+                print(f"  [display] saw a change but couldn't parse it: {reading['raw_text']!r} (conf={reading['conf']:.2f})")
         self._prev_display_crop = crop
 
         for stale_hit in self.correlator.pop_stale_camera_hits(t=t):
